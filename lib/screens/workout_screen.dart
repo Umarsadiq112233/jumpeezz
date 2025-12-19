@@ -102,9 +102,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                       
                       return ScaleTransition(
                         scale: _pulseAnimation,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                        child: SingleChildScrollView(
+                          physics: BouncingScrollPhysics(),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
                             // Connection Status Indicator
                             Container(
                               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -315,6 +317,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                                   ),
                                 ),
                           ],
+                          ),
                         ),
                       );
                     }),

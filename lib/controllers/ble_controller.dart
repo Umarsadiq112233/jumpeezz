@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -286,10 +287,24 @@ class BleController extends GetxController {
 
             // Parse full exercise data
             try {
-              currentExerciseData.value = ExerciseData.fromBytes(data);
+              final parsedData = ExerciseData.fromBytes(data);
+              
+              // CRITICAL FIX: Race Condition
+              // If we are in an active session, PRESERVE our local duration and start time.
+              // The device's internal timer might lag or drift, causing UI flickering.
+              // We only trust the device for Jump Count and other physical metrics.
+              if (_isSessionActive && currentExerciseData.value != null) {
+                currentExerciseData.value = parsedData.copyWith(
+                  startTime: currentExerciseData.value!.startTime,
+                  duration: currentExerciseData.value!.duration,
+                );
+              } else {
+                currentExerciseData.value = parsedData;
+              }
+              
               print('✅ Successfully parsed Exercise Data');
               print('   Jump Count: ${currentExerciseData.value?.jumpCount}');
-              print('   Duration: ${currentExerciseData.value?.duration}s');
+              print('   Duration: ${currentExerciseData.value?.duration}s (Local: ${_isSessionActive})');
               print(
                 '   State: ${currentExerciseData.value?.state.displayName}',
               );
@@ -472,14 +487,21 @@ class BleController extends GetxController {
             if (duration >= targetValue) {
                print('⏰ Time Target Reached! Stopping.');
                timer.cancel(); // Stop timer immediately
-               stopExercise();
-               Get.snackbar(
-                'Time\'s Up!',
-                'You completed your ${targetValue}s workout!',
-                backgroundColor: Colors.green,
-                colorText: Colors.white,
-                duration: Duration(seconds: 4),
-              );
+               
+               // Trigger Haptic Feedback
+               HapticFeedback.heavyImpact();
+               
+               // Stop safely
+               stopExercise().then((_) {
+                 Get.back(); // Close the workout screen
+                 Get.snackbar(
+                  'Time\'s Up!',
+                  'You completed your ${targetValue}s workout!',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                  duration: Duration(seconds: 4),
+                 );
+               });
             }
           }
         }
